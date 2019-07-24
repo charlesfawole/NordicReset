@@ -5,60 +5,66 @@ import clr
 import time,datetime
 from WandCommPy import WandCommPy
 from DataSaver import DataSaver
+from IPG_DevKitControl import IPG_DevKitControl
+from MSP_FW_Loader import MSP_FW_Loader
+from FW_From_SVN import FW_From_SVN
+from Nordic_FW_Loader import Nordic_FW_Loader
 
 
 
-clr.AddReference('TivaComm')
+#clr.AddReference('TivaComm')
 
-logFile = ("C:\\Users\\charles.fawole\\Box Sync\\RF IPG\\Misc Data\\Nordic Reset\\nordic_reset "+str((int)(time.time()))+".csv")
-   
-header = ['Index','TimeStamp','reboot_counter_arm','reboot_counter','softerrors','reboot_occurred','reboot_timestamp','version','exception_index']
+#wand = WandCommPy()
 
-logFile = DataSaver(logFile,header)
-
-wand = WandCommPy()
-
-index = 0
-exception_count = 0
-wand.runCommand('a')
-wand.runCommand('e')
-wand.runCommand('boot')
-wand.runCommand('a')
-wand.runCommand('e')
-wand.runCommand('v')
-print(wand.runCommand('fcall 0 0x115 2'))
 
 
 def main():
-    index = 0
-    exception_index = 0
+
+    fw_svn = FW_From_SVN()
+    mspFW_loader = MSP_FW_Loader()
+    nordicLoader = Nordic_FW_Loader()
+
+
+    fw_svn.getTopOfTrunkFW()
+    latestBuildNumber = fw_svn.getLatestFWBuildNumber()
+    latestRevisionNumber = fw_svn.getLatestRevisionNumber()
+
+    mspFW_loader.programMSP(latestBuildNumber)
+    nordicLoader.programNordic(NordicFWFolder=latestBuildNumber)
+
     while True:
-        try:
-            (wand.runCommand('a'))
-            (wand.runCommand('e'))
-            wand.runCommand('boot')
-            wand.runCommand('a')
-            wand.runCommand('e')
-            version = wand.runCommand('v')
-            print (version)
-            (wand.runCommand('fcall 0 0x116 8 240 30 1'))
+        if (latestBuildNumber == fw_svn.getLatestFWBuildNumber()):
 
-            reboot_timestamp = wand.runCommand('readx 0 0x1904 4')
-            reboot_occurred = wand.runCommand('readx 0 0x1900 1')
-            softerrors=wand.runCommand('readx 0 0x18D0 4')
-            reboot_counter=wand.runCommand('readx 0 0x18D4 4')
-            reboot_counter_arm = wand.runCommand('readx 0 0x18D8 4')
-            print("reboot counter: {} arm reboot counter {}".format(reboot_counter, reboot_counter_arm))
-            logFile.writeRowToCSV([index,datetime.datetime.now(),reboot_counter_arm,reboot_counter,softerrors,reboot_occurred,reboot_timestamp,version,exception_index])
-            logFile.flush()
-            time.sleep(300)
-            index = index+1
-        except Exception as ex:
-            print (ex)
-            exception_index = exception_index + 1
-        finally:
-            print ("At exception number "+str(exception_index))
+            fw_svn.getTopOfTrunkFW()
+            latestBuildNumber = fw_svn.getLatestFWBuildNumber()
+            latestRevisionNumber = fw_svn.getLatestRevisionNumber()
 
-    logFile.closeCSV()
+
+            mspFW_loader.programMSP(latestBuildNumber)
+            nordicLoader.programNordic(NordicFWFolder=latestBuildNumber)
+        
+            print ("\r\n\r\n")
+            print("loaded firmware is latest from SVN")
+    
+        else:
+             print ("\r\n\r\n")
+             print("loaded firmware is not latest from SVN")
+
+    #dev_kit = IPG_DevKitControl("COM3")
+    #mspFW_loader = MSP_FW_Loader()
+    
+    #nordicLoader = Nordic_FW_Loader()
+
+    #fw_svn.getTopOfTrunkFW()
+    #fw_svn.getLatestFWBuildNumber()
+
+    #print(dev_kit._execute_command('reboot'))
+    #mspFW_loader.programMSP()
+    #nordicLoader.programNordic()
+
+    #dev_kit.closePort()
+
+    
+
    
 main()
